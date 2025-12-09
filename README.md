@@ -1,11 +1,11 @@
 # 📚 Technical Documentation Assistant
 
-AI-powered chatbot for Python library documentation. Built with Google Gemini, LangChain, and FAISS vector search.
+AI-powered chatbot for Python library documentation. Built with Google Gemini, LangChain, and ChromaDB vector search.
 
 ## 🌟 Features
 
 - **RAG (Retrieval Augmented Generation)**: Query translation, decomposition, and hybrid retrieval
-- **Vector Search**: FAISS-based semantic search with Google embeddings
+- **Vector Search**: ChromaDB-based semantic search with Google embeddings
 - **Code Execution**: Safe Python code execution (RestrictedPython)
 - **Package Info**: Real-time PyPI package information
 - **Documentation Search**: Find official docs for Python libraries
@@ -13,12 +13,29 @@ AI-powered chatbot for Python library documentation. Built with Google Gemini, L
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+- **Python 3.11 or 3.12** (ChromaDB requires Python < 3.14)
+
+### 1. Set Up Python 3.11 Environment
+```bash
+# Create virtual environment with Python 3.11
+python3.11 -m venv venv_py311
+
+# Activate it
+source venv_py311/bin/activate  # On Mac/Linux
+# or
+venv_py311\Scripts\activate     # On Windows
+
+# Or use the setup script
+./setup_py311.sh
+```
+
+### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Get Google API Key
+### 3. Get Google API Key
 1. Visit https://makersuite.google.com/app/apikey
 2. Create an API key
 3. Add to `.env` file:
@@ -26,10 +43,20 @@ pip install -r requirements.txt
 GOOGLE_API_KEY=your_key_here
 ```
 
-### 3. Run
+### 4. Run the App
+
+**Option 1: Use the run script (Recommended)**
 ```bash
+./run.sh
+```
+
+**Option 2: Manual activation**
+```bash
+source venv_py311/bin/activate
 streamlit run app.py
 ```
+
+**⚠️ IMPORTANT**: Always activate the Python 3.11 environment first! Running `streamlit run app.py` directly will use Python 3.14 and fail.
 
 Open http://localhost:8501 in your browser.
 
@@ -68,11 +95,6 @@ Edit `config.py` to customize model, RAG parameters, rate limits, and supported 
 - **Vector DB fails**: Delete `chroma_db/` folder and restart
 - **View logs**: `tail -f chatbot.log`
 
-## 📚 Additional Documentation
-
-- **PYTHON_3.14_NOTES.md**: Python 3.14 compatibility notes
-- **MIGRATION_GUIDE.md**: OpenAI to Google Gemini migration guide
-
 ---
 
-**Tech Stack**: Google Gemini 2.5 Flash • LangChain • FAISS • Streamlit • Python 3.14
+**Tech Stack**: Google Gemini 2.5 Flash • LangChain • ChromaDB • Streamlit • Python 3.11

@@ -1,4 +1,3 @@
-"""Technical Documentation Assistant chatbot."""
 import json
 from typing import List, Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,7 +11,6 @@ from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST
 
 
 class TechnicalDocAssistant:
-    """AI chatbot for Python library documentation."""
     
     def __init__(self):
         logger.info("Initializing Technical Documentation Assistant")

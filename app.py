@@ -26,7 +26,7 @@ st.markdown("""
     }
     .sub-header {
         font-size: 1.2rem;
-        color: #555;
+        opacity: 0.8;
         text-align: center;
         margin-bottom: 2rem;
     }
@@ -35,50 +35,34 @@ st.markdown("""
         border-radius: 0.5rem;
         margin-bottom: 1rem;
         border-left: 4px solid;
-        color: #000 !important;
     }
     .user-message {
-        background-color: #e3f2fd;
+        background-color: rgba(33, 150, 243, 0.1);
         border-left-color: #2196f3;
-        color: #000 !important;
     }
     .assistant-message {
-        background-color: #f5f5f5;
+        background-color: rgba(76, 175, 80, 0.1);
         border-left-color: #4caf50;
-        color: #000 !important;
-    }
-    .chat-message * {
-        color: #000 !important;
     }
     .metadata {
         font-size: 0.85rem;
-        color: #555 !important;
+        opacity: 0.7;
         margin-top: 0.5rem;
     }
     .tool-call {
-        background-color: #fff3e0;
+        background-color: rgba(255, 152, 0, 0.1);
         padding: 0.5rem;
         border-radius: 0.3rem;
         margin: 0.5rem 0;
         border-left: 3px solid #ff9800;
-        color: #000 !important;
     }
     .source-badge {
         display: inline-block;
-        background-color: #e0e0e0;
+        background-color: rgba(128, 128, 128, 0.2);
         padding: 0.2rem 0.5rem;
         border-radius: 0.3rem;
         margin: 0.2rem;
         font-size: 0.8rem;
-        color: #000 !important;
-    }
-    /* Ensure all text in main content is visible */
-    .main .block-container {
-        color: inherit;
-    }
-    /* Fix for dark theme */
-    [data-testid="stMarkdownContainer"] {
-        color: inherit;
     }
 </style>
 """, unsafe_allow_html=True)

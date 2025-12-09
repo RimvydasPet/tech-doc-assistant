@@ -1,4 +1,3 @@
-"""Configuration settings for the Technical Documentation Assistant."""
 import os
 from dotenv import load_dotenv
 
