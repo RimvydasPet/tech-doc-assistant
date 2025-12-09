@@ -48,13 +48,29 @@ class AdvancedRAGEngine:
             
             # Parse the response
             import json
-            queries = json.loads(response.content)
+            import re
+            
+            # Try to extract JSON from the response
+            content = response.content.strip()
+            
+            # If response is wrapped in markdown code blocks, extract it
+            if content.startswith("```"):
+                # Extract content between code blocks
+                match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            
+            queries = json.loads(content)
+            
+            # Ensure it's a list
+            if not isinstance(queries, list):
+                queries = [question]
             
             logger.info(f"Generated {len(queries)} query variations")
             return queries
             
         except Exception as e:
-            logger.error(f"Error in query translation: {str(e)}")
+            logger.warning(f"Error in query translation: {str(e)}. Using original question.")
             # Fallback to original question
             return [question]
     
@@ -67,13 +83,29 @@ class AdvancedRAGEngine:
             
             # Parse the response
             import json
-            sub_questions = json.loads(response.content)
+            import re
+            
+            # Try to extract JSON from the response
+            content = response.content.strip()
+            
+            # If response is wrapped in markdown code blocks, extract it
+            if content.startswith("```"):
+                # Extract content between code blocks
+                match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', content, re.DOTALL)
+                if match:
+                    content = match.group(1)
+            
+            sub_questions = json.loads(content)
+            
+            # Ensure it's a list
+            if not isinstance(sub_questions, list):
+                sub_questions = [question]
             
             logger.info(f"Generated {len(sub_questions)} sub-questions")
             return sub_questions
             
         except Exception as e:
-            logger.error(f"Error in query decomposition: {str(e)}")
+            logger.warning(f"Error in query decomposition: {str(e)}. Using original question.")
             # Fallback to original question
             return [question]
     
