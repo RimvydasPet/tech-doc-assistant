@@ -1,5 +1,7 @@
 import json
 from typing import List, Dict, Any, Optional
+import re
+import math
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -80,6 +82,47 @@ GUIDELINES:
 - If the user needs documentation links, use search_documentation
 
 Remember: You're helping developers learn and solve problems efficiently."""
+
+    def _create_system_prompt_visual(self, context: str) -> str:
+        return f"""You are a Technical Documentation Assistant specializing in Python libraries.
+Your role is to help developers understand and work with Python libraries like pandas, numpy,
+scikit-learn, matplotlib, and others.
+
+You have access to the following tools:
+1. execute_code: Run Python code snippets safely
+2. get_package_info: Get package information from PyPI
+3. search_documentation: Find official documentation links
+
+CONTEXT FROM KNOWLEDGE BASE:
+{context}
+
+GUIDELINES:
+- Provide accurate, detailed explanations based on the context
+- Be concise but thorough
+- Always cite sources when using information from the context
+- Format code using markdown code blocks
+
+VISUAL OUTPUT MODE:
+- You MUST output a single valid JSON object (and nothing else).
+- JSON schema:
+  {{
+    "response": "<markdown string>",
+    "visual": null | {{
+      "type": "table" | "bar" | "line" | "scatter",
+      "title": "<short title>",
+      "data": {{
+        "columns": ["col1", "col2", ...],
+        "rows": [[...], [...]]
+      }},
+      "x": "<column name>",
+      "y": "<column name>"
+    }}
+  }}
+- If the user asks for a chart/plot/visualization OR provides matplotlib/plt.* plotting code, you MUST include a non-null "visual".
+- Otherwise, set "visual" to null.
+- Keep tables small (<= 50 rows).
+
+Remember: You're helping developers learn and solve problems efficiently."""
     
     def _format_context(self, documents: List) -> str:
         if not documents:
@@ -97,7 +140,7 @@ Remember: You're helping developers learn and solve problems efficiently."""
         
         return "\n---\n".join(context_parts)
     
-    def chat(self, user_message: str, use_tools: bool = True) -> Dict[str, Any]:
+    def chat(self, user_message: str, use_tools: bool = True, visual_mode: bool = False, **kwargs) -> Dict[str, Any]:
         logger.info(f"Processing user message: {user_message[:50]}...")
         
         try:
@@ -107,7 +150,11 @@ Remember: You're helping developers learn and solve problems efficiently."""
             context = self._format_context(documents)
             
             # Create system prompt with context
-            system_prompt = self._create_system_prompt(context)
+            system_prompt = (
+                self._create_system_prompt_visual(context)
+                if visual_mode
+                else self._create_system_prompt(context)
+            )
             
             # Build conversation messages
             messages = [SystemMessage(content=system_prompt)]
@@ -120,7 +167,25 @@ Remember: You're helping developers learn and solve problems efficiently."""
                     messages.append(AIMessage(content=msg["content"]))
             
             # Add current message
-            messages.append(HumanMessage(content=user_message))
+            if visual_mode:
+                plot_like = any(
+                    token in user_message.lower()
+                    for token in ["plt.", "matplotlib", "plot", "chart", "visual", "graph", "line plot", "bar chart", "scatter"]
+                )
+                if plot_like:
+                    messages.append(
+                        HumanMessage(
+                            content=(
+                                user_message
+                                + "\n\nReturn the JSON with a non-null visual. "
+                                + "If you need numbers, invent a small illustrative dataset and include it in visual.data."
+                            )
+                        )
+                    )
+                else:
+                    messages.append(HumanMessage(content=user_message))
+            else:
+                messages.append(HumanMessage(content=user_message))
             
             # Generate response
             if use_tools:
@@ -128,6 +193,68 @@ Remember: You're helping developers learn and solve problems efficiently."""
             else:
                 response = self.llm.invoke(messages)
                 response = response.content
+
+            visual = None
+            if visual_mode:
+                parsed = None
+                content = response.strip() if isinstance(response, str) else ""
+
+                if content.startswith("```"):
+                    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+                    if match:
+                        content = match.group(1).strip()
+
+                if not content.startswith("{"):
+                    match = re.search(r"(\{.*\})", content, re.DOTALL)
+                    if match:
+                        content = match.group(1).strip()
+
+                try:
+                    parsed = json.loads(content)
+                except Exception:
+                    parsed = None
+
+                if isinstance(parsed, dict):
+                    response = parsed.get("response", response)
+                    visual = parsed.get("visual")
+
+                if visual is None:
+                    lower_msg = user_message.lower()
+
+                    list_match = re.search(r"\[\s*([0-9eE+\-\.,\s]+)\s*\]", user_message)
+                    if list_match and ("sin" in lower_msg and "line" in lower_msg or "sin(x)" in lower_msg):
+                        try:
+                            xs = [float(x.strip()) for x in list_match.group(1).split(",") if x.strip()]
+                            ys = [math.sin(x) for x in xs]
+                            visual = {
+                                "type": "line",
+                                "title": "sin(x)",
+                                "data": {
+                                    "columns": ["x", "sin(x)"],
+                                    "rows": [[x, y] for x, y in zip(xs[:50], ys[:50])],
+                                },
+                                "x": "x",
+                                "y": "sin(x)",
+                            }
+                        except Exception:
+                            visual = None
+
+                    if visual is None and ("bar" in lower_msg or "bar chart" in lower_msg):
+                        try:
+                            pairs = re.findall(r"([A-Za-z0-9_\-]+)\s*=\s*([0-9]+(?:\.[0-9]+)?)", user_message)
+                            if pairs:
+                                visual = {
+                                    "type": "bar",
+                                    "title": "Bar chart",
+                                    "data": {
+                                        "columns": ["label", "value"],
+                                        "rows": [[k, float(v)] for k, v in pairs[:50]],
+                                    },
+                                    "x": "label",
+                                    "y": "value",
+                                }
+                        except Exception:
+                            visual = None
             
             # Update conversation history
             self.conversation_history.append({
@@ -143,6 +270,7 @@ Remember: You're helping developers learn and solve problems efficiently."""
             
             return {
                 "response": response,
+                "visual": visual,
                 "context_used": len(documents),
                 "retrieval_strategy": retrieval_result["strategy"],
                 "sources": [doc.metadata for doc in documents if hasattr(doc, 'metadata')]
@@ -152,6 +280,7 @@ Remember: You're helping developers learn and solve problems efficiently."""
             logger.error(f"Error processing message: {str(e)}")
             return {
                 "response": f"I encountered an error: {str(e)}. Please try rephrasing your question.",
+                "visual": None,
                 "context_used": 0,
                 "retrieval_strategy": "none",
                 "sources": []

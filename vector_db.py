@@ -86,12 +86,20 @@ class VectorDatabase:
             )
         
         # Create vector store with ChromaDB using the client
-        self.vectorstore = Chroma.from_documents(
-            documents=documents,
-            embedding=self.embeddings,
-            client=self.client,
-            collection_name=COLLECTION_NAME
-        )
+        if documents:
+            self.vectorstore = Chroma.from_documents(
+                documents=documents,
+                embedding=self.embeddings,
+                client=self.client,
+                collection_name=COLLECTION_NAME
+            )
+        else:
+            self.client.get_or_create_collection(COLLECTION_NAME)
+            self.vectorstore = Chroma(
+                client=self.client,
+                collection_name=COLLECTION_NAME,
+                embedding_function=self.embeddings
+            )
         
         logger.info(f"ChromaDB vector database created with {len(documents)} document chunks")
     

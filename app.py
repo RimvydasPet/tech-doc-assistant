@@ -5,6 +5,7 @@ from datetime import datetime
 from chatbot import TechnicalDocAssistant
 from logger import logger
 import json
+import pandas as pd
 
 # Page configuration
 st.set_page_config(
@@ -86,6 +87,61 @@ def initialize_session_state():
     if 'use_tools' not in st.session_state:
         st.session_state.use_tools = True
 
+    if 'visual_mode' not in st.session_state:
+        st.session_state.visual_mode = False
+
+
+def render_visual(visual: dict):
+    if not isinstance(visual, dict):
+        return
+
+    chart_type = visual.get("type")
+    title = visual.get("title")
+    data = visual.get("data")
+    x = visual.get("x")
+    y = visual.get("y")
+
+    if title:
+        st.markdown(f"#### {title}")
+
+    if not isinstance(data, dict):
+        st.info("No visual data provided.")
+        return
+
+    columns = data.get("columns")
+    rows = data.get("rows")
+    if not isinstance(columns, list) or not isinstance(rows, list):
+        st.info("Visual data was not in the expected format.")
+        return
+
+    try:
+        df = pd.DataFrame(rows, columns=columns)
+    except Exception:
+        st.info("Could not render visual data.")
+        return
+
+    if chart_type == "table":
+        st.dataframe(df, use_container_width=True)
+        return
+
+    if chart_type in {"bar", "line", "scatter"}:
+        if x not in df.columns or y not in df.columns:
+            st.dataframe(df, use_container_width=True)
+            return
+
+        df2 = df[[x, y]].copy()
+        df2[y] = pd.to_numeric(df2[y], errors="coerce")
+
+        if chart_type == "bar":
+            st.bar_chart(df2.set_index(x)[y])
+        elif chart_type == "line":
+            st.line_chart(df2.set_index(x)[y])
+        else:
+            st.scatter_chart(df2, x=x, y=y)
+        return
+
+    st.dataframe(df, use_container_width=True)
+
 
 def display_message(role: str, content: str, metadata: dict = None):
     css_class = "user-message" if role == "user" else "assistant-message"
@@ -133,6 +189,13 @@ def sidebar():
             help="Allow the assistant to execute code, fetch package info, and search documentation"
         )
         st.session_state.use_tools = use_tools
+
+        visual_mode = st.checkbox(
+            "Enable Visual Answers",
+            value=st.session_state.visual_mode,
+            help="Allow the assistant to return a chart/table in addition to text"
+        )
+        st.session_state.visual_mode = visual_mode
         
         st.markdown("---")
         
@@ -198,6 +261,11 @@ def main():
                 unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Your AI-powered guide to Python libraries</div>', 
                 unsafe_allow_html=True)
+
+    st.caption(
+        f"Visual Answers: {'ON' if st.session_state.get('visual_mode') else 'OFF'} | "
+        f"Tool Calling: {'ON' if st.session_state.get('use_tools') else 'OFF'}"
+    )
     
     # Sidebar
     sidebar()
@@ -214,6 +282,13 @@ def main():
             message["content"],
             message.get("metadata")
         )
+
+        if message["role"] == "assistant" and (message.get("visual_mode") or message.get("visual")):
+            with st.expander("📈 Visual", expanded=True):
+                if message.get("visual"):
+                    render_visual(message.get("visual"))
+                else:
+                    st.info("No visual was returned for this answer. Ask explicitly for a chart/table (e.g., 'show a table' or 'make a bar chart').")
     
     # Handle example query
     if hasattr(st.session_state, 'example_query'):
@@ -241,10 +316,12 @@ def main():
                 # Get response from chatbot
                 result = st.session_state.chatbot.chat(
                     prompt,
-                    use_tools=st.session_state.use_tools
+                    use_tools=st.session_state.use_tools,
+                    visual_mode=st.session_state.visual_mode
                 )
                 
                 response = result["response"]
+                visual = result.get("visual")
                 metadata = {
                     "context_used": result.get("context_used", 0),
                     "retrieval_strategy": result.get("retrieval_strategy", "none"),
@@ -256,11 +333,20 @@ def main():
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": response,
-                    "metadata": metadata
+                    "metadata": metadata,
+                    "visual": visual,
+                    "visual_mode": st.session_state.visual_mode
                 })
                 
                 # Display assistant message
                 display_message("assistant", response, metadata)
+
+                if st.session_state.visual_mode or visual:
+                    with st.expander("📈 Visual", expanded=True):
+                        if visual:
+                            render_visual(visual)
+                        else:
+                            st.info("No visual was returned for this answer. Ask explicitly for a chart/table (e.g., 'show a table' or 'make a bar chart').")
                 
                 logger.info(f"Response generated in {metadata['response_time']}s")
                 

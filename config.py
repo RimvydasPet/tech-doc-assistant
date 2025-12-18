@@ -44,6 +44,52 @@ SUPPORTED_LIBRARIES = [
     "sqlalchemy"
 ]
 
+OFFICIAL_DOC_URLS = {
+    "pandas": [
+        "https://pandas.pydata.org/docs/",
+        "https://pandas.pydata.org/docs/user_guide/index.html",
+    ],
+    "numpy": [
+        "https://numpy.org/doc/stable/",
+        "https://numpy.org/doc/stable/user/absolute_beginners.html",
+    ],
+    "scikit-learn": [
+        "https://scikit-learn.org/stable/",
+        "https://scikit-learn.org/stable/user_guide.html",
+    ],
+    "matplotlib": [
+        "https://matplotlib.org/stable/",
+        "https://matplotlib.org/stable/users/index.html",
+    ],
+    "seaborn": [
+        "https://seaborn.pydata.org/",
+        "https://seaborn.pydata.org/tutorial.html",
+    ],
+    "requests": [
+        "https://requests.readthedocs.io/en/latest/",
+        "https://requests.readthedocs.io/en/latest/user/quickstart/",
+    ],
+    "flask": [
+        "https://flask.palletsprojects.com/en/stable/",
+        "https://flask.palletsprojects.com/en/stable/quickstart/",
+    ],
+    "django": [
+        "https://docs.djangoproject.com/en/stable/",
+        "https://docs.djangoproject.com/en/stable/intro/overview/",
+    ],
+    "fastapi": [
+        "https://fastapi.tiangolo.com/",
+        "https://fastapi.tiangolo.com/tutorial/",
+    ],
+    "sqlalchemy": [
+        "https://docs.sqlalchemy.org/en/20/",
+        "https://docs.sqlalchemy.org/en/20/tutorial/",
+    ],
+}
+
+DOC_FETCH_TIMEOUT_SECONDS = 15
+DOC_FETCH_USER_AGENT = "tech-doc-assistant/1.0"
+
 # Validation
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY not found in environment variables. Please set it in .env file.")
