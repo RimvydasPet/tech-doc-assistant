@@ -1,15 +1,13 @@
 """Streamlit UI."""
 import streamlit as st
 import time
-from datetime import datetime
 from chatbot import TechnicalDocAssistant
 from logger import logger
-import json
 import pandas as pd
 
 # Page configuration
 st.set_page_config(
-    page_title="Technical Documentation Assistant",
+    page_title="Python Docs Copilot",
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -202,21 +200,21 @@ def sidebar():
         # Information
         st.markdown("### 📚 About")
         st.info("""
-        **Technical Documentation Assistant**
+        **Python Docs Copilot**
         
-        This AI assistant helps you understand and work with Python libraries.
+        Ask questions about Python libraries and get answers grounded in your indexed docs.
         
-        **Capabilities:**
-        - 🔍 Advanced RAG with query translation
-        - 🛠️ Code execution
-        - 📦 Package information lookup
-        - 📖 Documentation search
+        **How it works:**
+        - 🔎 Retrieves relevant snippets from a local knowledge base (RAG)
+        - 🧠 Improves recall via query translation (and decomposition for longer questions)
         
-        **Supported Libraries:**
-        - pandas, numpy, scikit-learn
-        - matplotlib, seaborn
-        - requests, flask, django
-        - fastapi, sqlalchemy
+        **Built-in tools:**
+        - 🛠️ Execute Python snippets (restricted sandbox)
+        - 📦 Look up package info & latest version from PyPI
+        - 📖 Jump to official documentation links for supported libraries
+        
+        **Extras:**
+        - 📈 Optional visual answers (tables / charts)
         """)
         
         st.markdown("---")
@@ -225,11 +223,12 @@ def sidebar():
         st.markdown("### 💡 Example Queries")
         
         examples = [
-            "How do I create a pandas DataFrame?",
-            "Show me how to use numpy arrays",
-            "What's the latest version of scikit-learn?",
-            "Execute this code: print('Hello, World!')",
-            "Find documentation for matplotlib plotting"
+            "Summarize how pandas.merge works and cite sources",
+            "What's the latest version of fastapi on PyPI?",
+            "Execute this code and explain the output: print(sum(range(10)))",
+            "Find official docs for sqlalchemy relationships",
+            "Show a table comparing numpy arrays vs Python lists",
+            "Make a bar chart of these values: A=10, B=7, C=3"
         ]
         
         for example in examples:
@@ -257,16 +256,11 @@ def main():
     initialize_session_state()
     
     # Header
-    st.markdown('<div class="main-header">📚 Technical Documentation Assistant</div>', 
+    st.markdown('<div class="main-header">📚 Python Docs Copilot</div>', 
                 unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Your AI-powered guide to Python libraries</div>', 
+    st.markdown('<div class="sub-header">RAG-powered answers with tools and visuals</div>', 
                 unsafe_allow_html=True)
 
-    st.caption(
-        f"Visual Answers: {'ON' if st.session_state.get('visual_mode') else 'OFF'} | "
-        f"Tool Calling: {'ON' if st.session_state.get('use_tools') else 'OFF'}"
-    )
-    
     # Sidebar
     sidebar()
     

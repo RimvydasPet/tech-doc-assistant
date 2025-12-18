@@ -1,9 +1,8 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import re
 import math
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from vector_db import VectorDatabase
 from rag_engine import AdvancedRAGEngine

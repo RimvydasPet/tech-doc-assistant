@@ -1,15 +1,12 @@
 """Tool implementations for the chatbot."""
-import subprocess
-import sys
-import json
 import requests
-from typing import Dict, Any, Optional
-from RestrictedPython import compile_restricted, safe_globals
+from typing import Dict, Any
+from RestrictedPython import compile_restricted
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safe_builtins
 from io import StringIO
 import contextlib
 from logger import logger
-from config import CODE_EXECUTION_TIMEOUT, MAX_CODE_LENGTH, SUPPORTED_LIBRARIES
+from config import MAX_CODE_LENGTH, SUPPORTED_LIBRARIES
 
 
 class CodeExecutor:
