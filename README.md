@@ -8,7 +8,8 @@ AI-powered chatbot for Python library documentation. Built with Google Gemini, L
 - **Vector Search**: ChromaDB-based semantic search with Google embeddings
 - **Code Execution**: Safe Python code execution (RestrictedPython)
 - **Package Info**: Real-time PyPI package information
-- **Documentation Search**: Find official docs for Python libraries
+- **Documentation Links**: Get official documentation links for supported Python libraries (plus common sections like install/tutorial/API)
+- **Visual Answers (Optional)**: The assistant can return a JSON response with an accompanying table/chart that the UI renders
 - **Supported Libraries**: pandas, numpy, scikit-learn, matplotlib, seaborn, requests, flask, django, fastapi, sqlalchemy
 
 ## 🚀 Quick Start
@@ -38,8 +39,11 @@ pip install -r requirements.txt
 ### 3. Get Google API Key
 1. Visit https://makersuite.google.com/app/apikey
 2. Create an API key
-3. Add to `.env` file:
+3. Create a `.env` file (you can copy the template):
 ```bash
+cp .env.example .env
+
+# Edit .env and set:
 GOOGLE_API_KEY=your_key_here
 ```
 
@@ -56,7 +60,7 @@ source venv_py311/bin/activate
 streamlit run app.py
 ```
 
-**⚠️ IMPORTANT**: Always activate the Python 3.11 environment first! Running `streamlit run app.py` directly will use Python 3.14 and fail.
+**⚠️ IMPORTANT**: Ensure you run Streamlit using the same Python environment where you installed dependencies (recommended: `venv_py311`).
 
 Open http://localhost:8501 in your browser.
 
@@ -66,6 +70,7 @@ Open http://localhost:8501 in your browser.
 - "Execute: import pandas as pd; print(pd.__version__)"
 - "What's the latest version of numpy?"
 - "Find matplotlib plotting documentation"
+- "Show a table comparing numpy arrays vs Python lists" (then enable **Visual Answers** in the sidebar)
 
 ## 🏗️ Project Structure
 
@@ -88,6 +93,10 @@ tech-doc-assistant/
 ## ⚙️ Configuration
 
 Edit `config.py` to customize model, RAG parameters, rate limits, and supported libraries.
+
+In the UI sidebar you can also toggle:
+- Tool calling
+- Visual answers
 
 ## 🐛 Troubleshooting
 
