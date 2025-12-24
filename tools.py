@@ -1,8 +1,10 @@
 """Tool implementations for the chatbot."""
 import requests
 from typing import Dict, Any
-from RestrictedPython import compile_restricted
-from RestrictedPython.Guards import guarded_iter_unpack_sequence, safe_builtins
+import subprocess
+import sys
+import tempfile
+import os
 from io import StringIO
 import contextlib
 from logger import logger
@@ -15,7 +17,7 @@ class CodeExecutor:
     @staticmethod
     def execute_code(code: str) -> Dict[str, Any]:
         """
-        Execute Python code in a restricted environment.
+        Execute Python code in a restricted environment using subprocess.
         
         Args:
             code: Python code to execute
@@ -33,61 +35,60 @@ class CodeExecutor:
                 "output": ""
             }
         
-        # Capture stdout
-        output_buffer = StringIO()
-        
         try:
-            # Compile with RestrictedPython
-            byte_code = compile_restricted(
-                code,
-                filename='<inline code>',
-                mode='exec'
-            )
+            # Create a temporary file with the code
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write(code)
+                temp_file = f.name
             
-            if byte_code.errors:
+            try:
+                # Execute the code in a subprocess
+                result = subprocess.run(
+                    [sys.executable, temp_file],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    cwd=tempfile.gettempdir()
+                )
+                
+                output = result.stdout.strip()
+                error = result.stderr.strip()
+                
+                if result.returncode != 0:
+                    logger.error(f"Code execution error: {error}")
+                    return {
+                        "success": False,
+                        "error": error,
+                        "output": output
+                    }
+                
+                logger.info("Code executed successfully")
                 return {
-                    "success": False,
-                    "error": f"Compilation errors: {', '.join(byte_code.errors)}",
-                    "output": ""
+                    "success": True,
+                    "error": None,
+                    "output": output if output else "Code executed successfully (no output)"
                 }
+                
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass
             
-            # Set up safe execution environment
-            safe_globals_dict = {
-                '__builtins__': safe_builtins,
-                '_iter_unpack_sequence_': guarded_iter_unpack_sequence,
-                '_getiter_': lambda x: iter(x),
-                'print': lambda *args, **kwargs: print(*args, **kwargs, file=output_buffer),
-            }
-            
-            # Allow common safe libraries
-            import math
-            import random
-            import datetime
-            safe_globals_dict.update({
-                'math': math,
-                'random': random,
-                'datetime': datetime,
-            })
-            
-            # Execute the code
-            with contextlib.redirect_stdout(output_buffer):
-                exec(byte_code.code, safe_globals_dict)
-            
-            output = output_buffer.getvalue()
-            logger.info("Code executed successfully")
-            
+        except subprocess.TimeoutExpired:
+            logger.error("Code execution timed out")
             return {
-                "success": True,
-                "error": None,
-                "output": output if output else "Code executed successfully (no output)"
+                "success": False,
+                "error": "Code execution timed out (10 second limit)",
+                "output": ""
             }
-            
         except Exception as e:
             logger.error(f"Code execution error: {str(e)}")
             return {
                 "success": False,
                 "error": str(e),
-                "output": output_buffer.getvalue()
+                "output": ""
             }
 
 

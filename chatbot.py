@@ -8,7 +8,7 @@ from vector_db import VectorDatabase
 from rag_engine import AdvancedRAGEngine
 from tools import CodeExecutor, PackageInfoFetcher, DocumentationSearcher
 from logger import logger
-from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST
+from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST, SUPPORTED_LIBRARIES
 
 
 class TechnicalDocAssistant:
@@ -61,9 +61,12 @@ Your role is to help developers understand and work with Python libraries like p
 scikit-learn, matplotlib, and others.
 
 You have access to the following tools:
-1. execute_code: Run Python code snippets safely
-2. get_package_info: Get package information from PyPI
-3. search_documentation: Find official documentation links
+1. execute_code: Run Python code snippets safely (use for examples, testing, verification)
+2. get_package_info: Get package information from PyPI (use for version/dependency questions)
+3. search_documentation: Find official documentation links (use when users need official docs)
+
+When tools are enabled, I will automatically detect when tools should be used and provide you with the results.
+When tools are disabled, answer based only on the provided context and your knowledge.
 
 CONTEXT FROM KNOWLEDGE BASE:
 {context}
@@ -76,9 +79,7 @@ GUIDELINES:
 - Always cite sources when using information from the context
 - Be concise but thorough
 - Format code using markdown code blocks
-- If the user asks to run code, use the execute_code tool
-- If the user asks about package versions or info, use get_package_info
-- If the user needs documentation links, use search_documentation
+- If tool results are provided, incorporate them naturally into your response
 
 Remember: You're helping developers learn and solve problems efficiently."""
 
@@ -286,9 +287,179 @@ Remember: You're helping developers learn and solve problems efficiently."""
             }
     
     def _generate_with_tools(self, messages: List) -> str:
-        logger.info("Generating response (tool calling simplified for compatibility)")
-        response = self.llm.invoke(messages)
+        logger.info("Generating response with tool calling capabilities")
+        
+        # Get the last user message
+        user_message = ""
+        for msg in reversed(messages):
+            if hasattr(msg, 'content') and isinstance(msg.content, str):
+                user_message = msg.content
+                break
+        
+        # Detect tool intent
+        tools_to_call = self._detect_tool_intent(user_message)
+        
+        if not tools_to_call:
+            # No tools needed, regular response
+            response = self.llm.invoke(messages)
+            return response.content
+        
+        # Execute tools and incorporate results
+        tool_results = self._execute_tools(tools_to_call, user_message)
+        
+        # Add tool results to conversation context
+        tool_context = self._format_tool_results(tool_results)
+        enhanced_messages = messages + [
+            SystemMessage(content=f"Tool Results:\n{tool_context}")
+        ]
+        
+        # Generate final response
+        response = self.llm.invoke(enhanced_messages)
         return response.content
+    
+    def _detect_tool_intent(self, message: str) -> List[str]:
+        """Detect which tools should be called based on user message."""
+        tools_needed = []
+        message_lower = message.lower()
+        
+        # Code execution patterns
+        if any(keyword in message_lower for keyword in [
+            "execute:", "run:", "code:", "print(", "import ", "calculate", 
+            "compute", "test", "try", "example", "show me", "demonstrate"
+        ]):
+            tools_needed.append("execute_code")
+        
+        # Package info patterns
+        if any(keyword in message_lower for keyword in [
+            "version", "latest", "package", "pypi", "install", "update", 
+            "what's new", "release", "download", "dependencies"
+        ]):
+            tools_needed.append("get_package_info")
+        
+        # Documentation search patterns
+        if any(keyword in message_lower for keyword in [
+            "documentation", "docs", "official", "guide", "tutorial", 
+            "reference", "manual", "help", "read more", "link"
+        ]):
+            tools_needed.append("search_documentation")
+        
+        return tools_needed
+    
+    def _execute_tools(self, tools_to_call: List[str], user_message: str) -> Dict[str, Any]:
+        """Execute the detected tools."""
+        results = {}
+        
+        for tool_name in tools_to_call:
+            try:
+                if tool_name == "execute_code":
+                    # Extract code from message
+                    code = self._extract_code_from_message(user_message)
+                    if code:
+                        results[tool_name] = self.tools["execute_code"]["func"](code)
+                
+                elif tool_name == "get_package_info":
+                    # Extract package name from message
+                    package_name = self._extract_package_name(user_message)
+                    if package_name:
+                        results[tool_name] = self.tools["get_package_info"]["func"](package_name)
+                
+                elif tool_name == "search_documentation":
+                    # Extract library and query from message
+                    library, query = self._extract_doc_search_params(user_message)
+                    if library:
+                        results[tool_name] = self.tools["search_documentation"]["func"](library, query)
+                
+            except Exception as e:
+                logger.error(f"Error executing {tool_name}: {str(e)}")
+                results[tool_name] = {"success": False, "error": str(e)}
+        
+        return results
+    
+    def _extract_code_from_message(self, message: str) -> str:
+        """Extract Python code from user message."""
+        import re
+        
+        # Look for code blocks
+        code_block_match = re.search(r'```(?:python)?\s*(.*?)\s*```', message, re.DOTALL)
+        if code_block_match:
+            return code_block_match.group(1).strip()
+        
+        # Look for execute: pattern
+        execute_match = re.search(r'execute:\s*(.+?)(?:\n|$)', message, re.IGNORECASE)
+        if execute_match:
+            return execute_match.group(1).strip()
+        
+        # Look for run: pattern
+        run_match = re.search(r'run:\s*(.+?)(?:\n|$)', message, re.IGNORECASE)
+        if run_match:
+            return run_match.group(1).strip()
+        
+        return ""
+    
+    def _extract_package_name(self, message: str) -> str:
+        """Extract package name from user message."""
+        import re
+        
+        # Look for common patterns
+        for library in SUPPORTED_LIBRARIES:
+            if library.lower() in message.lower():
+                return library
+        
+        # Look for "package X" pattern
+        package_match = re.search(r'package\s+(\w+)', message, re.IGNORECASE)
+        if package_match:
+            return package_match.group(1).lower()
+        
+        return ""
+    
+    def _extract_doc_search_params(self, message: str) -> tuple:
+        """Extract library and query from documentation search request."""
+        import re
+        
+        # Try to find library name
+        library = None
+        for lib in SUPPORTED_LIBRARIES:
+            if lib.lower() in message.lower():
+                library = lib
+                break
+        
+        # Extract query (everything after library name or keywords)
+        query = message
+        if library:
+            query = message.replace(library, "").strip()
+        
+        # Remove common prefixes
+        for prefix in ["find", "search", "show", "get", "documentation", "docs"]:
+            query = query.replace(prefix, "").strip()
+        
+        return library, query if query else "documentation"
+    
+    def _format_tool_results(self, tool_results: Dict[str, Any]) -> str:
+        """Format tool results for inclusion in conversation context."""
+        formatted = []
+        
+        for tool_name, result in tool_results.items():
+            if tool_name == "execute_code":
+                if result.get("success"):
+                    formatted.append(f"Code Execution Result:\n{result.get('output', 'No output')}")
+                else:
+                    formatted.append(f"Code Execution Error: {result.get('error', 'Unknown error')}")
+            
+            elif tool_name == "get_package_info":
+                if result.get("success"):
+                    data = result.get("data", {})
+                    formatted.append(f"Package Information:\n- Name: {data.get('name')}\n- Version: {data.get('version')}\n- Summary: {data.get('summary')}")
+                else:
+                    formatted.append(f"Package Info Error: {result.get('error', 'Unknown error')}")
+            
+            elif tool_name == "search_documentation":
+                if result.get("success"):
+                    results = result.get("results", [])
+                    formatted.append(f"Documentation Links:\n" + "\n".join([f"- {r.get('title')}: {r.get('url')}" for r in results]))
+                else:
+                    formatted.append(f"Documentation Search Error: {result.get('error', 'Unknown error')}")
+        
+        return "\n\n".join(formatted)
     
     def clear_history(self) -> None:
         self.conversation_history = []
