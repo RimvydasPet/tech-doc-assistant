@@ -186,7 +186,7 @@ OFFICIAL_DOC_URLS = {
 }
 
 DOC_FETCH_TIMEOUT_SECONDS = 15
-DOC_FETCH_USER_AGENT = "tech-doc-assistant/1.0"
+DOC_FETCH_USER_AGENT = "python-docs-copilot/1.0"
 
 # Validation
 if not GOOGLE_API_KEY:

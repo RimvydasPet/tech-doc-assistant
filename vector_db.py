@@ -134,12 +134,3 @@ class VectorDatabase:
         logger.info(f"Adding {len(documents)} documents to vector database")
         self.vectorstore.add_documents(documents)
         logger.info("Documents added successfully")
-    
-    def get_retriever(self, search_kwargs: Optional[dict] = None):
-        if self.vectorstore is None:
-            raise ValueError("Vector database not initialized")
-        
-        if search_kwargs is None:
-            search_kwargs = {"k": 5}
-        
-        return self.vectorstore.as_retriever(search_kwargs=search_kwargs)

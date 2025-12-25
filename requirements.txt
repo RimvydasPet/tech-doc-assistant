@@ -11,4 +11,3 @@ beautifulsoup4
 lxml
 numpy
 pandas
-RestrictedPython

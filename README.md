@@ -75,7 +75,7 @@ Open http://localhost:8501 in your browser.
 ## 🏗️ Project Structure
 
 ```
-tech-doc-assistant/
+python-docs-copilot/
 ├── app.py                    # Streamlit UI
 ├── chatbot.py               # Main chatbot engine
 ├── rag_engine.py            # Advanced RAG implementation

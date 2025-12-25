@@ -1,6 +1,5 @@
 import logging
 import sys
-from datetime import datetime
 from config import LOG_FILE, LOG_LEVEL
 
 def setup_logger(name: str = "tech_doc_assistant") -> logging.Logger:

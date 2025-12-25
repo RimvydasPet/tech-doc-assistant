@@ -464,6 +464,3 @@ Remember: You're helping developers learn and solve problems efficiently."""
     def clear_history(self) -> None:
         self.conversation_history = []
         logger.info("Conversation history cleared")
-    
-    def get_history(self) -> List[Dict[str, str]]:
-        return self.conversation_history

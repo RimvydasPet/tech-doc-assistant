@@ -5,8 +5,6 @@ import subprocess
 import sys
 import tempfile
 import os
-from io import StringIO
-import contextlib
 from logger import logger
 from config import MAX_CODE_LENGTH, SUPPORTED_LIBRARIES
 
