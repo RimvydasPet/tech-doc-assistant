@@ -191,8 +191,12 @@ Remember: You're helping developers learn and solve problems efficiently."""
             if use_tools:
                 response = self._generate_with_tools(messages)
             else:
+                # Check if user is trying to use tool features with tools disabled
+                tool_warning = self._get_disabled_tools_warning(user_message)
                 response = self.llm.invoke(messages)
                 response = response.content
+                if tool_warning:
+                    response = f"{tool_warning}\n\n{response}"
 
             visual = None
             if visual_mode:
@@ -286,34 +290,62 @@ Remember: You're helping developers learn and solve problems efficiently."""
                 "sources": []
             }
     
+    def _get_disabled_tools_warning(self, message: str) -> str:
+        """Return a friendly warning if user tries to use tool features while tools are disabled."""
+        message_lower = message.lower()
+        
+        # Check for code execution intent
+        if any(kw in message_lower for kw in ["execute:", "run:", "code:", "print("]):
+            return "⚠️ **Tool calling is disabled.** I cannot execute code right now. Enable tool calling to run Python code snippets."
+        
+        # Check for package info intent
+        if any(kw in message_lower for kw in ["latest version", "pypi", "what version"]):
+            return "⚠️ **Tool calling is disabled.** I cannot fetch live package info from PyPI. Enable tool calling to get real-time package data."
+        
+        # Check for documentation search intent
+        if any(kw in message_lower for kw in ["official docs", "documentation link", "find docs"]):
+            return "⚠️ **Tool calling is disabled.** I cannot search official documentation. Enable tool calling to get documentation links."
+        
+        return ""
+    
     def _generate_with_tools(self, messages: List) -> str:
+        """Generate response with automatic tool calling based on user intent."""
         logger.info("Generating response with tool calling capabilities")
         
-        # Get the last user message
-        user_message = ""
-        for msg in reversed(messages):
-            if hasattr(msg, 'content') and isinstance(msg.content, str):
-                user_message = msg.content
-                break
+        # Extract the user's message from conversation
+        user_message = self._get_last_user_message(messages)
         
-        # Detect tool intent
+        # Detect which tools (if any) should be called
         tools_to_call = self._detect_tool_intent(user_message)
         
+        # If no tools needed, generate a simple response
         if not tools_to_call:
-            # No tools needed, regular response
-            response = self.llm.invoke(messages)
-            return response.content
+            return self._generate_simple_response(messages)
         
-        # Execute tools and incorporate results
+        # Execute detected tools and get results
         tool_results = self._execute_tools(tools_to_call, user_message)
         
-        # Add tool results to conversation context
+        # Generate response enhanced with tool results
+        return self._generate_enhanced_response(messages, tool_results)
+    
+    def _get_last_user_message(self, messages: List) -> str:
+        """Extract the last user message from the conversation."""
+        for msg in reversed(messages):
+            if hasattr(msg, 'content') and isinstance(msg.content, str):
+                return msg.content
+        return ""
+    
+    def _generate_simple_response(self, messages: List) -> str:
+        """Generate a response without tool augmentation."""
+        response = self.llm.invoke(messages)
+        return response.content
+    
+    def _generate_enhanced_response(self, messages: List, tool_results: Dict[str, Any]) -> str:
+        """Generate a response enhanced with tool execution results."""
         tool_context = self._format_tool_results(tool_results)
         enhanced_messages = messages + [
             SystemMessage(content=f"Tool Results:\n{tool_context}")
         ]
-        
-        # Generate final response
         response = self.llm.invoke(enhanced_messages)
         return response.content
     

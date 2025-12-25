@@ -202,7 +202,7 @@ def sidebar():
         st.info("""
         **Python Docs Copilot**
         
-        Ask questions about Python libraries and get answers grounded in your indexed docs.
+        Ask questions about Python and get answers grounded in your indexed docs.
         
         **How it works:**
         - 🔎 Retrieves relevant snippets from a local knowledge base (RAG)
