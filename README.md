@@ -6,6 +6,7 @@ AI-powered chatbot for Python library documentation. Built with Google Gemini, L
 
 - **RAG (Retrieval Augmented Generation)**: Query translation, decomposition, and hybrid retrieval
 - **Vector Search**: ChromaDB-based semantic search with Google embeddings
+- **Multi-Language Support**: Interact in 10+ languages (English, Spanish, French, German, Chinese, Japanese, Portuguese, Russian, Italian, Korean) with automatic detection or manual selection
 - **Code Execution**: Safe Python code execution (RestrictedPython)
 - **Package Info**: Real-time PyPI package information
 - **Documentation Links**: Get official documentation links for supported Python libraries (plus common sections like install/tutorial/API)
@@ -76,27 +77,70 @@ Open http://localhost:8501 in your browser.
 
 ```
 python-docs-copilot/
-├── app.py                    # Streamlit UI
-├── chatbot.py               # Main chatbot engine
-├── rag_engine.py            # Advanced RAG implementation
-├── vector_db.py             # Vector database management
-├── document_loader.py       # Knowledge base loader
-├── tools.py                 # Tool implementations
-├── config.py                # Configuration settings
-├── logger.py                # Logging setup
-├── requirements.txt         # Python dependencies
-├── .env.example            # Environment variables template
-├── .gitignore              # Git ignore rules
-└── README.md               # This file
+├── app.py                    # Streamlit UI (sidebar, chat interface, visual rendering, language selection)
+├── chatbot.py                # Main chatbot engine (tool detection, execution, response generation)
+├── language_handler.py       # Multi-language support (detection, translation)
+├── rag_engine.py             # Advanced RAG (query translation, decomposition, multi-query retrieval)
+├── vector_db.py              # ChromaDB vector database management
+├── document_loader.py        # Knowledge base document loader
+├── tools.py                  # Tool implementations (CodeExecutor, PackageInfoFetcher, DocumentationSearcher)
+├── rate_limiter.py           # Rate limiting implementation (sliding window algorithm)
+├── config.py                 # Configuration (API keys, models, supported libraries, doc URLs)
+├── logger.py                 # Logging setup
+├── requirements.txt          # Python dependencies
+├── run.sh                    # Run script (auto-detects Python 3.11 venv)
+├── setup_py311.sh            # Setup script for Python 3.11 environment
+├── .env.example              # Environment variables template
+├── .env                      # Your API keys (not in git)
+├── .gitignore                # Git ignore rules
+├── chroma_db/                # Vector database storage (auto-generated)
+├── chatbot.log               # Application logs
+└── README.md                 # This file
 ```
 
 ## ⚙️ Configuration
 
-Edit `config.py` to customize model, RAG parameters, rate limits, and supported libraries.
+Edit `config.py` to customize:
+- **Model settings**: Google Gemini model, embedding model
+- **RAG parameters**: Chunk size, overlap, top-k results
+- **Rate limits**: Max requests per minute (default: 20)
+- **Token limits**: Max tokens per request (default: 4000)
+- **Supported libraries**: List of libraries for documentation search
 
-In the UI sidebar you can also toggle:
-- Tool calling
-- Visual answers
+In the UI sidebar you can:
+- Toggle tool calling
+- Toggle visual answers
+- Select language (auto-detect or manual selection)
+- View rate limit status (requests used/remaining)
+
+## 🌍 Multi-Language Support
+
+The chatbot supports interaction in 10+ languages:
+- **English** (en)
+- **Spanish** / Español (es)
+- **French** / Français (fr)
+- **German** / Deutsch (de)
+- **Chinese** / 中文 (zh)
+- **Japanese** / 日本語 (ja)
+- **Portuguese** / Português (pt)
+- **Russian** / Русский (ru)
+- **Italian** / Italiano (it)
+- **Korean** / 한국어 (ko)
+
+### How It Works:
+1. **Auto-Detection** (default): The system automatically detects your language
+2. **Manual Selection**: Choose your preferred language from the sidebar
+3. **Translation Pipeline**: 
+   - Your query is translated to English for RAG retrieval
+   - The response is generated in English
+   - The response is translated back to your language
+
+### Example Queries in Different Languages:
+- 🇪🇸 "¿Cómo crear un DataFrame de pandas?"
+- 🇫🇷 "Comment créer un DataFrame pandas?"
+- 🇩🇪 "Wie erstelle ich einen pandas DataFrame?"
+- 🇨🇳 "如何创建pandas DataFrame？"
+- 🇯🇵 "pandasのDataFrameを作成する方法は？"
 
 ## 🐛 Troubleshooting
 

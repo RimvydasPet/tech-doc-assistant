@@ -2,6 +2,7 @@
 import streamlit as st
 import time
 from chatbot import TechnicalDocAssistant
+from language_handler import LanguageHandler
 from logger import logger
 import pandas as pd
 
@@ -82,11 +83,23 @@ def initialize_session_state():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     
+    # Generate unique session ID if not exists
+    if 'session_id' not in st.session_state:
+        import uuid
+        st.session_state.session_id = str(uuid.uuid4())
+        logger.info(f"Generated session ID: {st.session_state.session_id[:8]}...")
+    
     if 'use_tools' not in st.session_state:
         st.session_state.use_tools = True
 
     if 'visual_mode' not in st.session_state:
         st.session_state.visual_mode = False
+    
+    if 'user_language' not in st.session_state:
+        st.session_state.user_language = 'en'
+    
+    if 'auto_detect_language' not in st.session_state:
+        st.session_state.auto_detect_language = True
 
 
 def render_visual(visual: dict):
@@ -155,7 +168,7 @@ def display_message(role: str, content: str, metadata: dict = None):
     # Display metadata for assistant messages
     if role == "assistant" and metadata:
         with st.expander("📊 Response Metadata", expanded=False):
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
                 st.metric("Context Documents", metadata.get("context_used", 0))
@@ -165,6 +178,14 @@ def display_message(role: str, content: str, metadata: dict = None):
             
             with col3:
                 st.metric("Sources", len(metadata.get("sources", [])))
+            
+            with col4:
+                lang_name = metadata.get("language_name", "English")
+                st.metric("Language", lang_name)
+            
+            # Display English query if translated
+            if metadata.get("english_query"):
+                st.write(f"**English Query:** {metadata.get('english_query')}")
             
             # Display sources
             if metadata.get("sources"):
@@ -194,6 +215,43 @@ def sidebar():
             help="Allow the assistant to return a chart/table in addition to text"
         )
         st.session_state.visual_mode = visual_mode
+        
+        st.markdown("---")
+        
+        # Language selection
+        st.markdown("### 🌍 Language")
+        
+        auto_detect = st.checkbox(
+            "Auto-detect Language",
+            value=st.session_state.auto_detect_language,
+            help="Automatically detect the language of your message"
+        )
+        st.session_state.auto_detect_language = auto_detect
+        
+        if not auto_detect:
+            # Get supported languages
+            languages = LanguageHandler.get_supported_languages()
+            language_options = {f"{info['native']} ({info['name']})": code 
+                              for code, info in languages.items()}
+            
+            # Find current selection
+            current_lang = st.session_state.user_language
+            current_display = None
+            for display, code in language_options.items():
+                if code == current_lang:
+                    current_display = display
+                    break
+            
+            selected_display = st.selectbox(
+                "Select Language",
+                options=list(language_options.keys()),
+                index=list(language_options.values()).index(current_lang) if current_lang in language_options.values() else 0,
+                help="Choose your preferred language for interaction"
+            )
+            
+            st.session_state.user_language = language_options[selected_display]
+        else:
+            st.session_state.user_language = None
         
         st.markdown("---")
         
@@ -249,6 +307,22 @@ def sidebar():
         st.markdown("### 📊 Statistics")
         st.metric("Messages", len(st.session_state.messages))
         st.metric("Conversations", len(st.session_state.messages) // 2)
+        
+        # Rate limit info
+        if hasattr(st.session_state, 'chatbot') and st.session_state.initialized:
+            st.markdown("---")
+            st.markdown("### ⏱️ Rate Limit")
+            is_allowed, requests_made, requests_remaining = st.session_state.chatbot.rate_limiter.is_allowed(st.session_state.session_id)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Used", requests_made)
+            with col2:
+                st.metric("Remaining", requests_remaining)
+            
+            if requests_remaining == 0:
+                wait_time = st.session_state.chatbot.rate_limiter.get_wait_time(st.session_state.session_id)
+                st.warning(f"⏳ Wait {wait_time}s")
 
 
 def main():
@@ -292,7 +366,7 @@ def main():
         user_input = None
     
     # Chat input
-    if prompt := (user_input or st.chat_input("Ask me anything about Python libraries...")):
+    if prompt := (user_input or st.chat_input("Ask me anything about Python...")):
         # Add user message
         st.session_state.messages.append({
             "role": "user",
@@ -311,7 +385,9 @@ def main():
                 result = st.session_state.chatbot.chat(
                     prompt,
                     use_tools=st.session_state.use_tools,
-                    visual_mode=st.session_state.visual_mode
+                    visual_mode=st.session_state.visual_mode,
+                    session_id=st.session_state.session_id,
+                    user_lang=st.session_state.user_language
                 )
                 
                 response = result["response"]
@@ -320,7 +396,10 @@ def main():
                     "context_used": result.get("context_used", 0),
                     "retrieval_strategy": result.get("retrieval_strategy", "none"),
                     "sources": result.get("sources", []),
-                    "response_time": round(time.time() - start_time, 2)
+                    "response_time": round(time.time() - start_time, 2),
+                    "language": result.get("language", "en"),
+                    "language_name": result.get("language_name", "English"),
+                    "english_query": result.get("english_query")
                 }
                 
                 # Add assistant message

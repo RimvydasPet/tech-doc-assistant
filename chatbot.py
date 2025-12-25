@@ -7,8 +7,10 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from vector_db import VectorDatabase
 from rag_engine import AdvancedRAGEngine
 from tools import CodeExecutor, PackageInfoFetcher, DocumentationSearcher
+from rate_limiter import RateLimiter
+from language_handler import LanguageHandler
 from logger import logger
-from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST, SUPPORTED_LIBRARIES
+from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST, MAX_REQUESTS_PER_MINUTE, SUPPORTED_LIBRARIES
 
 
 class TechnicalDocAssistant:
@@ -34,6 +36,15 @@ class TechnicalDocAssistant:
         # Tools and history
         self.tools = self._setup_tools()
         self.conversation_history: List[Dict[str, str]] = []
+        
+        # Rate limiter
+        self.rate_limiter = RateLimiter(
+            max_requests=MAX_REQUESTS_PER_MINUTE,
+            time_window=60
+        )
+        
+        # Language handler
+        self.language_handler = LanguageHandler()
         
         logger.info("Chatbot initialized successfully")
     
@@ -140,12 +151,57 @@ Remember: You're helping developers learn and solve problems efficiently."""
         
         return "\n---\n".join(context_parts)
     
-    def chat(self, user_message: str, use_tools: bool = True, visual_mode: bool = False, **kwargs) -> Dict[str, Any]:
+    def chat(self, user_message: str, use_tools: bool = True, visual_mode: bool = False, session_id: str = "default", user_lang: str = None, **kwargs) -> Dict[str, Any]:
         logger.info(f"Processing user message: {user_message[:50]}...")
         
+        # Input validation
+        validation_error = self._validate_user_input(user_message)
+        if validation_error:
+            logger.warning(f"Input validation failed: {validation_error}")
+            return {
+                "response": validation_error,
+                "visual": None,
+                "context_used": 0,
+                "retrieval_strategy": "none",
+                "sources": [],
+                "language": user_lang or "en"
+            }
+        
+        # Rate limiting check
+        is_allowed, requests_made, requests_remaining = self.rate_limiter.is_allowed(session_id)
+        if not is_allowed:
+            wait_time = self.rate_limiter.get_wait_time(session_id)
+            logger.warning(f"Rate limit exceeded for session {session_id[:8]}... ({requests_made} requests)")
+            rate_limit_msg = f"⚠️ **Rate limit exceeded.** You've made {requests_made} requests in the last minute. Please wait {wait_time} seconds before trying again."
+            
+            # Translate rate limit message if needed
+            if user_lang and user_lang != "en":
+                rate_limit_msg = self.language_handler.translate_from_english(rate_limit_msg, user_lang)
+            
+            return {
+                "response": rate_limit_msg,
+                "visual": None,
+                "context_used": 0,
+                "retrieval_strategy": "none",
+                "sources": [],
+                "rate_limited": True,
+                "wait_time": wait_time,
+                "language": user_lang or "en"
+            }
+        
+        # Record this request
+        self.rate_limiter.record_request(session_id)
+        
         try:
-            # Retrieve relevant context using RAG
-            retrieval_result = self.rag_engine.hybrid_retrieve(user_message)
+            # Process multi-language query
+            lang_result = self.language_handler.process_multilingual_query(user_message, user_lang)
+            detected_lang = lang_result["detected_language"]
+            english_query = lang_result["english_query"]
+            
+            logger.info(f"Detected language: {detected_lang}, Needs translation: {lang_result['needs_translation']}")
+            
+            # Retrieve relevant context using RAG (using English query)
+            retrieval_result = self.rag_engine.hybrid_retrieve(english_query)
             documents = retrieval_result["documents"]
             context = self._format_context(documents)
             
@@ -260,6 +316,11 @@ Remember: You're helping developers learn and solve problems efficiently."""
                         except Exception:
                             visual = None
             
+            # Translate response back to user's language if needed
+            if detected_lang != "en":
+                logger.info(f"Translating response to {detected_lang}")
+                response = self.language_handler.process_multilingual_response(response, detected_lang)
+            
             # Update conversation history
             self.conversation_history.append({
                 "role": "user",
@@ -277,18 +338,78 @@ Remember: You're helping developers learn and solve problems efficiently."""
                 "visual": visual,
                 "context_used": len(documents),
                 "retrieval_strategy": retrieval_result["strategy"],
-                "sources": [doc.metadata for doc in documents if hasattr(doc, 'metadata')]
+                "sources": [doc.metadata for doc in documents if hasattr(doc, 'metadata')],
+                "language": detected_lang,
+                "language_name": lang_result["language_name"],
+                "original_message": lang_result["original_message"],
+                "english_query": english_query if detected_lang != "en" else None
             }
             
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
+            error_msg = f"I encountered an error: {str(e)}. Please try rephrasing your question."
+            
+            # Translate error message if needed
+            if user_lang and user_lang != "en":
+                try:
+                    error_msg = self.language_handler.translate_from_english(error_msg, user_lang)
+                except:
+                    pass  # If translation fails, use English error message
+            
             return {
-                "response": f"I encountered an error: {str(e)}. Please try rephrasing your question.",
+                "response": error_msg,
                 "visual": None,
                 "context_used": 0,
                 "retrieval_strategy": "none",
-                "sources": []
+                "sources": [],
+                "language": user_lang or "en"
             }
+    
+    def _validate_user_input(self, user_message: str) -> str:
+        """
+        Validate user input before processing.
+        
+        Returns:
+            Error message if validation fails, empty string if valid
+        """
+        # Check if message is None or not a string
+        if user_message is None:
+            return "⚠️ Please enter a message."
+        
+        if not isinstance(user_message, str):
+            return "⚠️ Invalid input type. Please enter text."
+        
+        # Strip whitespace
+        message = user_message.strip()
+        
+        # Check if empty
+        if not message:
+            return "⚠️ Please enter a non-empty message."
+        
+        # Check minimum length
+        if len(message) < 2:
+            return "⚠️ Message too short. Please enter at least 2 characters."
+        
+        # Check maximum length (prevent abuse)
+        MAX_MESSAGE_LENGTH = 5000
+        if len(message) > MAX_MESSAGE_LENGTH:
+            return f"⚠️ Message too long. Maximum {MAX_MESSAGE_LENGTH} characters allowed (you entered {len(message)})."
+        
+        # Check for suspicious patterns (basic security)
+        suspicious_patterns = [
+            r'<script[^>]*>',  # Script tags
+            r'javascript:',     # JavaScript protocol
+            r'on\w+\s*=',      # Event handlers
+        ]
+        
+        import re
+        for pattern in suspicious_patterns:
+            if re.search(pattern, message, re.IGNORECASE):
+                logger.warning(f"Suspicious pattern detected in input: {pattern}")
+                return "⚠️ Invalid characters detected in message. Please remove any HTML/JavaScript code."
+        
+        # All validations passed
+        return ""
     
     def _get_disabled_tools_warning(self, message: str) -> str:
         """Return a friendly warning if user tries to use tool features while tools are disabled."""
@@ -432,15 +553,35 @@ Remember: You're helping developers learn and solve problems efficiently."""
         """Extract package name from user message."""
         import re
         
-        # Look for common patterns
+        # First check supported libraries
         for library in SUPPORTED_LIBRARIES:
             if library.lower() in message.lower():
                 return library
         
-        # Look for "package X" pattern
-        package_match = re.search(r'package\s+(\w+)', message, re.IGNORECASE)
+        # Look for backticked package names like `pydantic`
+        backtick_match = re.search(r'`([a-zA-Z][a-zA-Z0-9_-]*)`', message)
+        if backtick_match:
+            return backtick_match.group(1).lower()
+        
+        # Look for "package X" or "library X" pattern
+        package_match = re.search(r'(?:package|library|module)\s+([a-zA-Z][a-zA-Z0-9_-]*)', message, re.IGNORECASE)
         if package_match:
             return package_match.group(1).lower()
+        
+        # Look for "X package" or "X library" pattern
+        reverse_match = re.search(r'([a-zA-Z][a-zA-Z0-9_-]*)\s+(?:package|library|module)', message, re.IGNORECASE)
+        if reverse_match:
+            return reverse_match.group(1).lower()
+        
+        # Look for common question patterns: "version of X", "about X", "info on X"
+        pattern_match = re.search(r'(?:version\s+of|about|info\s+on|information\s+on|details\s+on)\s+([a-zA-Z][a-zA-Z0-9_-]*)', message, re.IGNORECASE)
+        if pattern_match:
+            return pattern_match.group(1).lower()
+        
+        # Look for "does X require" pattern
+        require_match = re.search(r'does\s+([a-zA-Z][a-zA-Z0-9_-]*)\s+require', message, re.IGNORECASE)
+        if require_match:
+            return require_match.group(1).lower()
         
         return ""
     
