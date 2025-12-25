@@ -30,21 +30,91 @@ MAX_CODE_LENGTH = 1000  # characters
 LOG_FILE = "chatbot.log"
 LOG_LEVEL = "INFO"
 
-# Supported Python Libraries (for documentation)
+# Supported Python Libraries (focused on beginner learning)
 SUPPORTED_LIBRARIES = [
+    # Core Python essentials
+    "random",
+    "math", 
+    "datetime",
+    "json",
+    "os",
+    "sys",
+    "collections",
+    "itertools",
+    "functools",
+    
+    # Data analysis (most popular for beginners)
     "pandas",
     "numpy",
-    "scikit-learn",
+    
+    # Visualization (beginner-friendly)
     "matplotlib",
     "seaborn",
+    
+    # Web basics
     "requests",
     "flask",
-    "django",
-    "fastapi",
-    "sqlalchemy"
+    
+    # Testing (important skill)
+    "pytest",
+    "unittest",
+    
+    # File handling
+    "csv",
+    "pathlib",
+    
+    # String manipulation
+    "re",
+    "string",
+    
+    # Data structures
+    "collections",
+    
+    # Package management
+    "pip",
+    "setuptools"
 ]
 
 OFFICIAL_DOC_URLS = {
+    # Core Python modules
+    "random": [
+        "https://docs.python.org/3/library/random.html",
+        "https://docs.python.org/3/library/random.html#examples"
+    ],
+    "math": [
+        "https://docs.python.org/3/library/math.html",
+        "https://docs.python.org/3/library/math.html#functions"
+    ],
+    "datetime": [
+        "https://docs.python.org/3/library/datetime.html",
+        "https://docs.python.org/3/library/datetime.html#examples"
+    ],
+    "json": [
+        "https://docs.python.org/3/library/json.html",
+        "https://docs.python.org/3/library/json.html#basic-usage"
+    ],
+    "os": [
+        "https://docs.python.org/3/library/os.html",
+        "https://docs.python.org/3/library/os.html#file-names-and-command-line-arguments"
+    ],
+    "sys": [
+        "https://docs.python.org/3/library/sys.html",
+        "https://docs.python.org/3/library/sys.html#sys.argv"
+    ],
+    "collections": [
+        "https://docs.python.org/3/library/collections.html",
+        "https://docs.python.org/3/library/collections.html#namedtuple-factory-function-for-tuples-with-named-fields"
+    ],
+    "itertools": [
+        "https://docs.python.org/3/library/itertools.html",
+        "https://docs.python.org/3/library/itertools.html#itertools-recipes"
+    ],
+    "functools": [
+        "https://docs.python.org/3/library/functools.html",
+        "https://docs.python.org/3/library/functools.html#functools.partial"
+    ],
+    
+    # Data analysis
     "pandas": [
         "https://pandas.pydata.org/docs/",
         "https://pandas.pydata.org/docs/user_guide/index.html",
@@ -53,10 +123,8 @@ OFFICIAL_DOC_URLS = {
         "https://numpy.org/doc/stable/",
         "https://numpy.org/doc/stable/user/absolute_beginners.html",
     ],
-    "scikit-learn": [
-        "https://scikit-learn.org/stable/",
-        "https://scikit-learn.org/stable/user_guide.html",
-    ],
+    
+    # Visualization
     "matplotlib": [
         "https://matplotlib.org/stable/",
         "https://matplotlib.org/stable/users/index.html",
@@ -65,6 +133,8 @@ OFFICIAL_DOC_URLS = {
         "https://seaborn.pydata.org/",
         "https://seaborn.pydata.org/tutorial.html",
     ],
+    
+    # Web basics
     "requests": [
         "https://requests.readthedocs.io/en/latest/",
         "https://requests.readthedocs.io/en/latest/user/quickstart/",
@@ -73,18 +143,46 @@ OFFICIAL_DOC_URLS = {
         "https://flask.palletsprojects.com/en/stable/",
         "https://flask.palletsprojects.com/en/stable/quickstart/",
     ],
-    "django": [
-        "https://docs.djangoproject.com/en/stable/",
-        "https://docs.djangoproject.com/en/stable/intro/overview/",
+    
+    # Testing
+    "pytest": [
+        "https://docs.pytest.org/en/stable/",
+        "https://docs.pytest.org/en/stable/getting-started.html",
     ],
-    "fastapi": [
-        "https://fastapi.tiangolo.com/",
-        "https://fastapi.tiangolo.com/tutorial/",
+    "unittest": [
+        "https://docs.python.org/3/library/unittest.html",
+        "https://docs.python.org/3/library/unittest.html#basic-example",
     ],
-    "sqlalchemy": [
-        "https://docs.sqlalchemy.org/en/20/",
-        "https://docs.sqlalchemy.org/en/20/tutorial/",
+    
+    # File handling
+    "csv": [
+        "https://docs.python.org/3/library/csv.html",
+        "https://docs.python.org/3/library/csv.html#examples"
     ],
+    "pathlib": [
+        "https://docs.python.org/3/library/pathlib.html",
+        "https://docs.python.org/3/library/pathlib.html#basic-usage"
+    ],
+    
+    # String manipulation
+    "re": [
+        "https://docs.python.org/3/library/re.html",
+        "https://docs.python.org/3/library/re.html#regular-expression-syntax"
+    ],
+    "string": [
+        "https://docs.python.org/3/library/string.html",
+        "https://docs.python.org/3/library/string.html#string-constants"
+    ],
+    
+    # Package management
+    "pip": [
+        "https://pip.pypa.io/en/stable/",
+        "https://pip.pypa.io/en/stable/getting-started.html",
+    ],
+    "setuptools": [
+        "https://setuptools.pypa.io/en/latest/",
+        "https://setuptools.pypa.io/en/latest/userguide.html",
+    ]
 }
 
 DOC_FETCH_TIMEOUT_SECONDS = 15
