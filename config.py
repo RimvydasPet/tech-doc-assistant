@@ -5,7 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Google AI Configuration
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Try Streamlit secrets first (for cloud deployment), then fall back to env vars
+try:
+    import streamlit as st
+    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY"))
+except (ImportError, FileNotFoundError):
+    # Not running in Streamlit or secrets not configured
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_MODEL = "gemini-2.5-flash"  # Updated to latest available model
 EMBEDDING_MODEL = "models/text-embedding-004"  # Updated embedding model
 
