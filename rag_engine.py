@@ -1,5 +1,6 @@
 """RAG engine with query translation and multi-query retrieval."""
 from typing import List, Dict, Any
+from functools import lru_cache
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
@@ -17,6 +18,9 @@ class AdvancedRAGEngine:
             temperature=0,
             google_api_key=GOOGLE_API_KEY
         )
+        # Cache for query translations and decompositions
+        self._query_translation_cache = {}
+        self._query_decomposition_cache = {}
         
         # Query translation prompt
         self.query_translation_prompt = ChatPromptTemplate.from_messages([
@@ -40,6 +44,12 @@ class AdvancedRAGEngine:
         ])
     
     def translate_query(self, question: str) -> List[str]:
+        # Check cache first
+        cache_key = hash(question)
+        if cache_key in self._query_translation_cache:
+            logger.info(f"Query translation cache hit for: {question[:50]}...")
+            return self._query_translation_cache[cache_key]
+        
         logger.info(f"Translating query: {question[:50]}...")
         
         try:
@@ -67,6 +77,7 @@ class AdvancedRAGEngine:
                 queries = [question]
             
             logger.info(f"Generated {len(queries)} query variations")
+            self._query_translation_cache[cache_key] = queries
             return queries
             
         except Exception as e:
@@ -75,6 +86,12 @@ class AdvancedRAGEngine:
             return [question]
     
     def decompose_query(self, question: str) -> List[str]:
+        # Check cache first
+        cache_key = hash(question)
+        if cache_key in self._query_decomposition_cache:
+            logger.info(f"Query decomposition cache hit for: {question[:50]}...")
+            return self._query_decomposition_cache[cache_key]
+        
         logger.info(f"Decomposing query: {question[:50]}...")
         
         try:
@@ -102,6 +119,7 @@ class AdvancedRAGEngine:
                 sub_questions = [question]
             
             logger.info(f"Generated {len(sub_questions)} sub-questions")
+            self._query_decomposition_cache[cache_key] = sub_questions
             return sub_questions
             
         except Exception as e:

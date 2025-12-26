@@ -1,5 +1,6 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from functools import lru_cache
 import chromadb
 from chromadb.config import Settings
 from langchain_community.vectorstores import Chroma
@@ -19,6 +20,9 @@ class VectorDatabase:
         self.vectorstore: Optional[Chroma] = None
         # Initialize ChromaDB client with proper settings for v0.5+
         self.client = None
+        # Cache for similarity searches
+        self._search_cache = {}
+        self._search_with_score_cache = {}
         
     def initialize(self, force_reload: bool = False) -> None:
         logger.info("Initializing vector database")
@@ -108,10 +112,19 @@ class VectorDatabase:
             logger.error(f"Vector database not initialized. vectorstore is: {self.vectorstore}")
             raise ValueError("Vector database not initialized")
         
+        # Check cache first
+        cache_key = (hash(query), k)
+        if cache_key in self._search_cache:
+            logger.info(f"Similarity search cache hit for: {query[:50]}...")
+            return self._search_cache[cache_key]
+        
         logger.info(f"Performing similarity search for: {query[:50]}...")
         try:
             results = self.vectorstore.similarity_search(query, k=k)
             logger.info(f"Found {len(results)} results")
+            # Cache the results (limit cache size to prevent memory issues)
+            if len(self._search_cache) < 100:
+                self._search_cache[cache_key] = results
             return results
         except Exception as e:
             logger.error(f"Error during similarity search: {str(e)}")
@@ -121,9 +134,19 @@ class VectorDatabase:
         if self.vectorstore is None:
             raise ValueError("Vector database not initialized")
         
+        # Check cache first
+        cache_key = (hash(query), k)
+        if cache_key in self._search_with_score_cache:
+            logger.info(f"Similarity search with score cache hit for: {query[:50]}...")
+            return self._search_with_score_cache[cache_key]
+        
         logger.info(f"Performing similarity search with scores for: {query[:50]}...")
         results = self.vectorstore.similarity_search_with_score(query, k=k)
         logger.info(f"Found {len(results)} results")
+        
+        # Cache the results (limit cache size)
+        if len(self._search_with_score_cache) < 100:
+            self._search_with_score_cache[cache_key] = results
         
         return results
     

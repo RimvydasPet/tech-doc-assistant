@@ -68,11 +68,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+@st.cache_resource
+def get_chatbot():
+    """Initialize and cache the chatbot instance across all sessions."""
+    logger.info("Initializing cached chatbot instance")
+    return TechnicalDocAssistant()
+
+
 def initialize_session_state():
     if 'chatbot' not in st.session_state:
         with st.spinner("🔧 Initializing chatbot... This may take a moment."):
             try:
-                st.session_state.chatbot = TechnicalDocAssistant()
+                st.session_state.chatbot = get_chatbot()
                 st.session_state.initialized = True
                 logger.info("Chatbot initialized in session state")
             except Exception as e:
@@ -253,6 +260,12 @@ def sidebar():
         else:
             st.session_state.user_language = None
         
+        # Clear cache button for testing
+        if st.button("🗑️ Clear Translation Cache", help="Clear cached translations to test improvements"):
+            if hasattr(st.session_state, 'chatbot') and hasattr(st.session_state.chatbot, 'language_handler'):
+                st.session_state.chatbot.language_handler.clear_cache()
+                st.success("Translation cache cleared!")
+        
         st.markdown("---")
         
         # Information
@@ -381,6 +394,15 @@ def main():
             try:
                 start_time = time.time()
                 
+                # Show language mode info
+                if st.session_state.auto_detect_language:
+                    st.info("🌍 Auto-detecting language...")
+                else:
+                    lang_name = LanguageHandler.get_supported_languages().get(
+                        st.session_state.user_language, {}
+                    ).get("native", "English")
+                    st.info(f"🌍 Using language: {lang_name}")
+                
                 # Get response from chatbot
                 result = st.session_state.chatbot.chat(
                     prompt,
@@ -392,13 +414,22 @@ def main():
                 
                 response = result["response"]
                 visual = result.get("visual")
+                
+                # Show detected language
+                detected_lang = result.get("language", "en")
+                detected_lang_name = result.get("language_name", "English")
+                if st.session_state.auto_detect_language and detected_lang != "en":
+                    st.success(f"✓ Detected {detected_lang_name}, response translated back to {detected_lang_name}")
+                elif st.session_state.auto_detect_language:
+                    st.success(f"✓ Detected {detected_lang_name}")
+                
                 metadata = {
                     "context_used": result.get("context_used", 0),
                     "retrieval_strategy": result.get("retrieval_strategy", "none"),
                     "sources": result.get("sources", []),
                     "response_time": round(time.time() - start_time, 2),
-                    "language": result.get("language", "en"),
-                    "language_name": result.get("language_name", "English"),
+                    "language": detected_lang,
+                    "language_name": detected_lang_name,
                     "english_query": result.get("english_query")
                 }
                 

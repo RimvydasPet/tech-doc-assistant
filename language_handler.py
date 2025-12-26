@@ -1,5 +1,6 @@
 """Language detection and translation handler for multi-language support."""
 from typing import Dict, Any, Optional
+from functools import lru_cache
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from logger import logger
@@ -18,7 +19,7 @@ class LanguageHandler:
         "zh": {"name": "Chinese", "native": "中文"},
         "ja": {"name": "Japanese", "native": "日本語"},
         "pt": {"name": "Portuguese", "native": "Português"},
-        "ru": {"name": "Russian", "native": "Русский"},
+        "lt": {"name": "Lithuanian", "native": "Lietuvių"},
         "it": {"name": "Italian", "native": "Italiano"},
         "ko": {"name": "Korean", "native": "한국어"},
     }
@@ -30,11 +31,14 @@ class LanguageHandler:
             temperature=0,
             google_api_key=GOOGLE_API_KEY
         )
-        logger.info("Language handler initialized")
+        # Cache for language detection and translations
+        self._detection_cache = {}
+        self._translation_cache = {}
+        logger.info("Language handler initialized with caching")
     
     def detect_language(self, text: str) -> str:
         """
-        Detect the language of the input text.
+        Detect the language of the input text with caching.
         
         Args:
             text: Input text to detect language
@@ -42,6 +46,12 @@ class LanguageHandler:
         Returns:
             Language code (e.g., 'en', 'es', 'fr')
         """
+        # Check cache first
+        cache_key = hash(text[:100])  # Use first 100 chars for cache key
+        if cache_key in self._detection_cache:
+            logger.info(f"Language detection cache hit for: {text[:50]}...")
+            return self._detection_cache[cache_key]
+        
         logger.info(f"Detecting language for text: {text[:50]}...")
         
         try:
@@ -61,18 +71,21 @@ Return only the 2-letter code, nothing else."""
             # Validate the detected code
             if detected_code in self.SUPPORTED_LANGUAGES:
                 logger.info(f"Detected language: {detected_code}")
+                self._detection_cache[cache_key] = detected_code
                 return detected_code
             else:
                 logger.warning(f"Invalid language code detected: {detected_code}. Defaulting to 'en'")
+                self._detection_cache[cache_key] = "en"
                 return "en"
                 
         except Exception as e:
             logger.error(f"Error detecting language: {str(e)}. Defaulting to 'en'")
+            self._detection_cache[cache_key] = "en"
             return "en"
     
     def translate_to_english(self, text: str, source_lang: str) -> str:
         """
-        Translate text from source language to English.
+        Translate text from source language to English with caching.
         
         Args:
             text: Text to translate
@@ -84,6 +97,12 @@ Return only the 2-letter code, nothing else."""
         # If already English, return as-is
         if source_lang == "en":
             return text
+        
+        # Check cache
+        cache_key = (hash(text), source_lang, "en")
+        if cache_key in self._translation_cache:
+            logger.info(f"Translation cache hit: {source_lang} -> en")
+            return self._translation_cache[cache_key]
         
         logger.info(f"Translating from {source_lang} to English")
         
@@ -102,6 +121,7 @@ Translation:"""
             
             translated = response.content.strip()
             logger.info(f"Translation successful: {translated[:50]}...")
+            self._translation_cache[cache_key] = translated
             return translated
             
         except Exception as e:
@@ -110,7 +130,7 @@ Translation:"""
     
     def translate_from_english(self, text: str, target_lang: str) -> str:
         """
-        Translate text from English to target language.
+        Translate text from English to target language with caching.
         
         Args:
             text: English text to translate
@@ -123,24 +143,37 @@ Translation:"""
         if target_lang == "en":
             return text
         
+        # Check cache
+        cache_key = (hash(text), "en", target_lang)
+        if cache_key in self._translation_cache:
+            logger.info(f"Translation cache hit: en -> {target_lang}")
+            return self._translation_cache[cache_key]
+        
         logger.info(f"Translating from English to {target_lang}")
         
         try:
             target_lang_name = self.SUPPORTED_LANGUAGES.get(target_lang, {}).get("name", target_lang)
+            target_lang_native = self.SUPPORTED_LANGUAGES.get(target_lang, {}).get("native", target_lang_name)
             
-            prompt = f"""Translate the following text from English to {target_lang_name}.
-Return ONLY the translated text, nothing else.
-Maintain all markdown formatting, code blocks, and technical terms.
+            prompt = f"""You are a professional translator. Translate the following English text to {target_lang_name} ({target_lang_native}).
 
-Text to translate: "{text}"
+IMPORTANT: 
+- You MUST translate the text to {target_lang_name}, not keep it in English
+- Maintain all markdown formatting (**, `, ```, etc.)
+- Keep code blocks and technical terms (like "pandas", "DataFrame", "pd.DataFrame()") unchanged
+- Translate explanatory text and descriptions to {target_lang_name}
 
-Translation:"""
+English text:
+{text}
+
+{target_lang_name} translation:"""
 
             messages = [HumanMessage(content=prompt)]
             response = self.llm.invoke(messages)
             
             translated = response.content.strip()
             logger.info(f"Translation successful: {translated[:50]}...")
+            self._translation_cache[cache_key] = translated
             return translated
             
         except Exception as e:
@@ -202,6 +235,12 @@ Translation:"""
             return english_response
         
         return self.translate_from_english(english_response, target_lang)
+    
+    def clear_cache(self) -> None:
+        """Clear translation and detection caches."""
+        self._detection_cache.clear()
+        self._translation_cache.clear()
+        logger.info("Language handler caches cleared")
     
     @classmethod
     def get_supported_languages(cls) -> Dict[str, Dict[str, str]]:
