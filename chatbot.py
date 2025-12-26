@@ -10,13 +10,16 @@ from tools import CodeExecutor, PackageInfoFetcher, DocumentationSearcher
 from rate_limiter import RateLimiter
 from language_handler import LanguageHandler
 from logger import logger
-from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST, MAX_REQUESTS_PER_MINUTE, SUPPORTED_LIBRARIES
+from config import GOOGLE_API_KEY, GOOGLE_MODEL, MAX_TOKENS_PER_REQUEST, MAX_REQUESTS_PER_MINUTE, SUPPORTED_LIBRARIES, validate_api_key
 
 
 class TechnicalDocAssistant:
     
     def __init__(self):
         logger.info("Initializing Technical Documentation Assistant")
+        
+        # Validate API key at runtime
+        validate_api_key()
         
         # Vector database
         self.vector_db = VectorDatabase()

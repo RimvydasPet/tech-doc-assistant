@@ -188,6 +188,11 @@ OFFICIAL_DOC_URLS = {
 DOC_FETCH_TIMEOUT_SECONDS = 15
 DOC_FETCH_USER_AGENT = "python-docs-copilot/1.0"
 
-# Validation
-if not GOOGLE_API_KEY:
-    raise ValueError("GOOGLE_API_KEY not found in environment variables. Please set it in .env file.")
+# Validation - deferred to runtime to allow Streamlit Cloud deployment
+def validate_api_key():
+    """Validate that GOOGLE_API_KEY is set. Call this at runtime, not at import."""
+    if not GOOGLE_API_KEY:
+        raise ValueError(
+            "GOOGLE_API_KEY not found in environment variables. "
+            "Please set it in .env file (local) or Streamlit secrets (cloud)."
+        )
