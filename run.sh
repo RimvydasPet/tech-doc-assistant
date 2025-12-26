@@ -11,14 +11,14 @@ echo -e "${BLUE}Using Python 3.11 with ChromaDB${NC}"
 echo ""
 
 # Check if virtual environment exists
-if [ ! -d "venv_py311" ]; then
+if [ ! -d "venv311" ]; then
     echo "❌ Virtual environment not found!"
-    echo "Please run: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m venv venv_py311"
+    echo "Please run: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3 -m venv venv311"
     exit 1
 fi
 
 # Activate virtual environment and run
-source venv_py311/bin/activate
+source venv311/bin/activate
 
 # Verify Python version
 PYTHON_VERSION=$(python --version)

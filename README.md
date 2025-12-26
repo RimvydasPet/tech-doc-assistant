@@ -117,16 +117,19 @@ In the UI sidebar you can:
 
 ## 🚀 Performance & Caching
 
-The application implements a 4-layer caching system for optimal performance:
-- **App-level caching**: Chatbot instance cached across sessions (Streamlit `@cache_resource`)
-- **Language detection & translation caching**: 100-200x faster on repeated queries
-- **Query expansion caching**: Saves 500-1000 tokens per cached query
-- **Vector search caching**: 50-100x faster similarity searches
+**4-Layer Caching System** for 80-95% faster responses on repeated queries:
 
-**Performance improvements:**
-- Repeated queries: 80-95% faster (~8-12s → 0.5-2s)
-- API calls: 60-80% reduction
-- Token usage: 60-70% reduction on cached queries
+1. **App-Level**: Chatbot instance cached across sessions (`@st.cache_resource`)
+2. **Language**: Detection & translation results (100-200x faster)
+3. **Query Expansion**: RAG query translations (saves 500-1000 tokens)
+4. **Vector Search**: ChromaDB similarity results (50-100x faster)
+
+**Performance:**
+- First query: 8-12s | Repeated: 0.5-2s ⚡
+- API calls: 60-80% reduction 💰
+- Token usage: 60-70% reduction 💰
+
+Clear cache: Use "🗑️ Clear Translation Cache" button in sidebar
 
 
 ## 🌍 Advanced Multi-Language Support
